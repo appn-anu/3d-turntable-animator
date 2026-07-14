@@ -17,7 +17,13 @@ import {
 } from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import type { LoadedPly } from '../ply/load';
-import { buildScene, configureRenderer, pointSize, type SceneObjects } from './sceneBuilder';
+import {
+  buildScene,
+  configureRenderer,
+  pointSize,
+  setObjectColorState,
+  type SceneObjects,
+} from './sceneBuilder';
 import {
   eyeForAngle,
   fitDistance,
@@ -122,6 +128,16 @@ export class TurntablePreview {
     } else {
       this.applyInteractiveClipping();
     }
+  }
+
+  /**
+   * Re-sync the preview to the loaded model's current colour state after the colour
+   * mode / brightness changed (`applyColorSettings` already rebaked the `color`
+   * attribute). Toggles vertex colours on/off and re-uploads the buffer.
+   */
+  refreshColors(): void {
+    if (!this.loaded || !this.sceneObjects) return;
+    setObjectColorState(this.sceneObjects.object, this.loaded.hasColors);
   }
 
   setBackground(color: Color | string | number): void {

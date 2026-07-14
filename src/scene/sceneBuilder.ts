@@ -87,6 +87,24 @@ export function buildScene(loaded: LoadedPly, options: BuildSceneOptions): Scene
   };
 }
 
+/**
+ * Sync an existing object's material to a new vertex-colour state (used when the
+ * colour mode toggles between Auto/Faithful and Off without rebuilding the scene).
+ * When colours are off the material falls back to the neutral fill; when on, the
+ * baked `color` attribute drives it. Also flags the attribute for re-upload.
+ */
+export function setObjectColorState(object: Points | Mesh, hasColors: boolean): void {
+  const material = object.material;
+  if (Array.isArray(material)) return;
+  const fallback = object instanceof Points ? POINTS_FALLBACK : MESH_FALLBACK;
+  const mat = material as PointsMaterial | MeshStandardMaterial;
+  mat.vertexColors = hasColors;
+  mat.color.set(hasColors ? 0xffffff : fallback);
+  mat.needsUpdate = true;
+  const colorAttr = object.geometry.getAttribute('color');
+  if (colorAttr) colorAttr.needsUpdate = true;
+}
+
 function buildPoints(geometry: BufferGeometry, hasColors: boolean, width: number): Points {
   const material = new PointsMaterial({
     size: pointSize(width),

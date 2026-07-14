@@ -46,13 +46,13 @@ De-risk the core bet before any UI.
 
 ## Milestone 3 - Settings UI, presets, validation
 
-- [ ] One-page form. **Presets:** Slides (1080²/30/12s), Social (512²/30/8s), Hi-res (2048²/60). Editing any field after a preset switches the label to **Custom** (gpt #21).
-- [ ] Grouped controls: *Camera* (up-axis X/Y/Z default Z; spin CW/CCW; turns; framing 1.1-3.0 default 1.5; perspective/FoV 15-90 default 60; point size auto+override). *Animation* (duration 2-30s; fps 24/30/60; derived frame-count label). *Output* (size 512/1080/1440/2048 + custom; background swatches + picker). *Advanced* (raw fov/margin, bitrate/quality, free aspect ratio).
-- [ ] **Even-dimension UX** (gpt #19): input `step=2`; if a pasted odd value is corrected, show "1279 -> 1280 (H.264 needs even dimensions)" instead of silently rounding.
-- [ ] Live-preview coupling for every camera control.
-- [ ] Support surfaces: clear "this browser cannot encode MP4/WebM" message driven by `isConfigSupported`.
-- [ ] **Colour handling (deferred from M1):** the M1 loader is faithful to the raw 8-bit `red/green/blue` (matches the CLI byte-for-byte). PlantEye scans like `wheat_cutout.ply` store near-black 8-bit colour (mean ~2.5/255); the real, still-dim colour lives in 16-bit `red16/green16/blue16`. Add **auto-brightening** for low-range clouds (prefer the 16-bit channels when present) with a **manual brightness slider layered on top**, and a faithful/off mode. Settle against a real CLI render here.
-- [ ] Visual parity check: render `test-data/wheat_cutout.ply` and compare against a CLI render of the same file.
+- [x] One-page form. **Presets:** Slides (1080²/30/12s), Social (512²/30/8s), Hi-res (2048²/60/8s). Editing any field after a preset switches the label to **Custom** (gpt #21). (`src/settings/output.ts` presets + match; `#presets` bar in `main.ts`.)
+- [~] Grouped controls: *Camera* (up-axis, spin CW/CCW, turns, framing 1.1-3.0, FoV 15-90) — **point-size auto+override still TODO**. *Animation* (duration 2-30s, fps 24/30/60, derived frame-count). *Output* (size 512/1080/1440/2048 + even custom, background swatches + colour picker). *Advanced* (`<details>`: bitrate override; **raw fov/margin and free-aspect-ratio still TODO**). Camera/Animation/Output/Advanced groups shipped; the two noted items are the M3 follow-up.
+- [x] **Even-dimension UX** (gpt #19): custom size `step=2`; an odd paste shows "1279 → 1280 (H.264 needs even dimensions)" via `normalizeEvenDimension` instead of silently rounding.
+- [x] Live-preview coupling: axis / spin / turns / framing / FoV all drive the preview live; colour mode + brightness rebake and refresh the preview immediately.
+- [x] Support surfaces: `#supportNote` runs `pickSupportedConfig` on size/fps changes and shows "this browser can't encode …" (and disables Render) when neither MP4 nor WebM is supported.
+- [x] **Colour handling (deferred from M1):** `src/ply/color.ts` pipeline — Auto (prefer 16-bit `red16/green16/blue16`, auto-brighten the robust highlight to ~0.9, **EV brightness slider layered on top**), Faithful (8-bit, unit gain, byte-for-byte CLI parity), Off (neutral fill). Loader keeps raw channels (`RawColor`); `applyColorSettings` rebakes the linear `color` attribute live. Auto level + EV slider **confirmed by the user** against real preview renders (wheat: black silhouette → green plant, ~109× gain). See [[wheat-colour-finding]].
+- [~] Visual parity check: web **Faithful** render reproduces the CLI's 8-bit black-silhouette output (confirmed structurally via headless preview capture). A full Open3D-CLI invocation for pixel parity is the M3 follow-up (needs the python/EGL env).
 
 ## Milestone 4 - PWA + CI/deploy
 
@@ -63,7 +63,7 @@ De-risk the core bet before any UI.
 ## Cross-cutting unit tests (Vitest)
 
 - [x] Camera math: orbit vectors, bounding-sphere fit, aspect-derived FoV, near/far.
-- [ ] Input validation: even-rounding, preset -> custom transition, frame-count derivation.
+- [x] Input validation: even-rounding, preset -> custom transition, frame-count derivation (`src/settings/output.test.ts`, 13 tests). Colour pipeline also unit-tested (`src/ply/color.test.ts`, 15 tests).
 - [x] Encode helpers: timestamp/keyframe math, `buildEncoderConfig`, candidate selection (`preferWebmFirst`). Export progress mapping (`src/export/progress.ts`) also unit-tested.
 
 ---

@@ -39,7 +39,7 @@ export interface ExportGeometryMessage {
 /** Bytes the export copy will allocate (positions + colours + indices). */
 export function estimateExportBytes(loaded: LoadedPly): number {
   const position = loaded.geometry.getAttribute('position');
-  const color = loaded.geometry.getAttribute('color');
+  const color = loaded.hasColors ? loaded.geometry.getAttribute('color') : null;
   const index = loaded.geometry.getIndex();
   const n = position ? position.count : 0;
   let bytes = n * 3 * Float32Array.BYTES_PER_ELEMENT; // positions
@@ -69,7 +69,7 @@ export function extractExportGeometry(loaded: LoadedPly): ExportGeometryMessage 
   }
   const positions = new Float32Array(position.array);
 
-  const colorAttr = loaded.geometry.getAttribute('color');
+  const colorAttr = loaded.hasColors ? loaded.geometry.getAttribute('color') : null;
   const colors = colorAttr ? new Float32Array(colorAttr.array) : null;
 
   const indexAttr = loaded.geometry.getIndex();
@@ -112,6 +112,9 @@ export function rebuildGeometry(payload: ExportGeometryPayload): LoadedPly {
     geometry,
     isPoints: payload.isPoints,
     vertexCount: payload.vertexCount,
+    // The worker renders the baked `color` attribute directly; raw channels and
+    // colour re-resolution stay on the main thread.
+    color: null,
     hasColors: payload.hasColors,
     radius: payload.radius,
     size: payload.size,

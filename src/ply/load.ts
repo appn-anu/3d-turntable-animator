@@ -5,9 +5,11 @@
 //   - No faces (geometry has no index) -> render as THREE.Points; else a lit mesh.
 //   - Centered at the origin via its axis-aligned bounding box (CLI centers on the
 //     bbox center so the turntable spin is clean).
-//   - Vertex colours (stored as authored sRGB) are decoded to linear so a
-//     color-managed, sRGB-output renderer reproduces the authored bytes (parity
-//     with the CLI's unlit point shader / `sRGB_color` lit material).
+//   - Vertex colours run through the colour pipeline (`color.ts`): the raw 8-bit and
+//     (when present) 16-bit red16/green16/blue16 channels are kept, and the current
+//     colour settings are baked into a linear-space `color` attribute so a
+//     color-managed sRGB-output renderer reproduces them. Default is Auto
+//     (auto-brighten preferring the 16-bit channels); see [[wheat-colour-finding]].
 //
 // Also reports a rotation-safe bounding-sphere radius (measured from the origin,
 // so it stays valid at every turntable angle) for the camera fit (gpt #5), plus
@@ -15,16 +17,27 @@
 
 import { BufferGeometry, Float32BufferAttribute } from 'three';
 import { PLYLoader } from 'three/examples/jsm/loaders/PLYLoader.js';
+import {
+  DEFAULT_COLOR_SETTINGS,
+  makeRawColor,
+  resolveColors,
+  type ColorResolveInfo,
+  type ColorSettings,
+  type RawColor,
+} from './color';
 
 /** Warn (not fail) above this many points — decimation is a post-v1 concern. */
 export const LARGE_POINT_COUNT = 3_000_000;
 
 export interface LoadedPly {
-  /** Origin-centered geometry; colours decoded to linear-space float if present. */
+  /** Origin-centered geometry; `color` attribute holds the current linear colours. */
   geometry: BufferGeometry;
   /** True when the source had no faces (render as points). */
   isPoints: boolean;
   vertexCount: number;
+  /** Raw colour channels for the colour pipeline, or null if the file had none. */
+  color: RawColor | null;
+  /** Whether the *current* colour settings produce visible vertex colours. */
   hasColors: boolean;
   /** Rotation-safe bounding-sphere radius from the origin (for the camera fit). */
   radius: number;
@@ -33,28 +46,62 @@ export interface LoadedPly {
   warnings: string[];
 }
 
-/** Single-channel sRGB -> linear (matches the standard sRGB EOTF). */
-function srgbToLinear(c: number): number {
-  return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+function clamp01(x: number): number {
+  return x < 0 ? 0 : x > 1 ? 1 : x;
 }
 
 /**
- * Replace a geometry's `color` attribute (authored sRGB) with a linear-space
- * Float32 attribute, reading through `getX/Y/Z` so normalized 8-bit colours are
- * handled correctly. No-op when there is no colour attribute.
+ * Scan a PLY header (ASCII prefix) for the property names of the `vertex` element.
+ * Cheap header-only peek so we can enable the 16-bit colour mapping only when the
+ * file actually carries those channels (an unconditional custom mapping would fail
+ * on files without them).
  */
-function decodeVertexColorsToLinear(geometry: BufferGeometry): boolean {
-  const color = geometry.getAttribute('color');
-  if (!color) return false;
-  const count = color.count;
-  const linear = new Float32Array(count * 3);
-  for (let i = 0; i < count; i++) {
-    linear[i * 3] = srgbToLinear(color.getX(i));
-    linear[i * 3 + 1] = srgbToLinear(color.getY(i));
-    linear[i * 3 + 2] = srgbToLinear(color.getZ(i));
+function readVertexProperties(buffer: ArrayBuffer): Set<string> {
+  const slice = new Uint8Array(buffer, 0, Math.min(buffer.byteLength, 65536));
+  let text = '';
+  for (let i = 0; i < slice.length; i++) text += String.fromCharCode(slice[i] ?? 0);
+  const end = text.indexOf('end_header');
+  const header = end >= 0 ? text.slice(0, end) : text;
+  const props = new Set<string>();
+  let inVertex = false;
+  for (const raw of header.split('\n')) {
+    const line = raw.trim();
+    if (line.startsWith('element vertex')) inVertex = true;
+    else if (line.startsWith('element ')) inVertex = false;
+    else if (inVertex && line.startsWith('property ') && !line.includes('list')) {
+      const name = line.split(/\s+/).pop();
+      if (name) props.add(name);
+    }
   }
-  geometry.setAttribute('color', new Float32BufferAttribute(linear, 3));
-  return true;
+  return props;
+}
+
+/**
+ * Pull the raw colour channels off a freshly-parsed geometry into a {@link RawColor}
+ * (with cached highlight stats), then strip those attributes — the canonical `color`
+ * attribute is rebuilt by the colour pipeline. Reads the 8-bit channel through
+ * `getX/Y/Z` so a normalized byte attribute or a float colour attribute both work.
+ */
+function extractRawColor(geometry: BufferGeometry): RawColor | null {
+  const c8 = geometry.getAttribute('color');
+  const c16 = geometry.getAttribute('rgb16');
+  let rgb8: Uint8Array | undefined;
+  let rgb16: Uint16Array | undefined;
+
+  if (c8) {
+    const n = c8.count;
+    rgb8 = new Uint8Array(n * 3);
+    for (let i = 0; i < n; i++) {
+      rgb8[i * 3] = Math.round(clamp01(c8.getX(i)) * 255);
+      rgb8[i * 3 + 1] = Math.round(clamp01(c8.getY(i)) * 255);
+      rgb8[i * 3 + 2] = Math.round(clamp01(c8.getZ(i)) * 255);
+    }
+  }
+  if (c16) {
+    rgb16 = new Uint16Array(c16.array as ArrayLike<number>);
+    geometry.deleteAttribute('rgb16');
+  }
+  return makeRawColor({ rgb8, rgb16 });
 }
 
 /**
@@ -83,6 +130,29 @@ function centerAndMeasure(geometry: BufferGeometry): { radius: number; size: [nu
 }
 
 /**
+ * Recompute the geometry's `color` attribute from the raw channels under `settings`,
+ * updating {@link LoadedPly.hasColors}. Mutates the existing colour buffer in place
+ * when the size matches (cheap on brightness-slider drags). Returns the resolve info
+ * (chosen source + gain) for the UI. No-op-safe when the file had no colour.
+ */
+export function applyColorSettings(loaded: LoadedPly, settings: ColorSettings): ColorResolveInfo {
+  const existing = loaded.geometry.getAttribute('color')?.array;
+  const reuse = existing instanceof Float32Array ? existing : undefined;
+  const result = resolveColors(loaded.color, settings, reuse);
+
+  if (result.colors) {
+    const current = loaded.geometry.getAttribute('color');
+    if (current && current.array === result.colors) {
+      current.needsUpdate = true;
+    } else {
+      loaded.geometry.setAttribute('color', new Float32BufferAttribute(result.colors, 3));
+    }
+  }
+  loaded.hasColors = result.effectiveHasColors;
+  return result.info;
+}
+
+/**
  * Normalize a freshly-parsed PLY BufferGeometry into a {@link LoadedPly}. Throws
  * a user-facing Error for empty/degenerate geometry.
  */
@@ -101,8 +171,8 @@ export function normalizeGeometry(geometry: BufferGeometry): LoadedPly {
     geometry.computeVertexNormals();
   }
 
-  const hasColors = decodeVertexColorsToLinear(geometry);
-  if (!hasColors) {
+  const color = extractRawColor(geometry);
+  if (!color) {
     warnings.push('No vertex colours found — using a neutral fill colour.');
   }
 
@@ -111,6 +181,19 @@ export function normalizeGeometry(geometry: BufferGeometry): LoadedPly {
     throw new Error('This PLY file has zero size or invalid coordinates.');
   }
 
+  const loaded: LoadedPly = {
+    geometry,
+    isPoints,
+    vertexCount,
+    color,
+    hasColors: false,
+    radius,
+    size,
+    warnings,
+  };
+  // Bake the default colour treatment (Auto) so the preview looks right immediately.
+  applyColorSettings(loaded, DEFAULT_COLOR_SETTINGS);
+
   if (vertexCount > LARGE_POINT_COUNT) {
     const millions = (vertexCount / 1_000_000).toFixed(1);
     warnings.push(
@@ -118,14 +201,22 @@ export function normalizeGeometry(geometry: BufferGeometry): LoadedPly {
     );
   }
 
-  return { geometry, isPoints, vertexCount, hasColors, radius, size, warnings };
+  return loaded;
 }
 
 /** Parse raw PLY bytes (ASCII or binary) into a normalized {@link LoadedPly}. */
 export function parsePly(buffer: ArrayBuffer): LoadedPly {
+  const props = readVertexProperties(buffer);
+  const has16 = props.has('red16') && props.has('green16') && props.has('blue16');
+
+  const loader = new PLYLoader();
+  if (has16) {
+    loader.setCustomPropertyNameMapping({ rgb16: ['red16', 'green16', 'blue16'] });
+  }
+
   let geometry: BufferGeometry;
   try {
-    geometry = new PLYLoader().parse(buffer);
+    geometry = loader.parse(buffer);
   } catch (cause) {
     throw new Error('This file could not be parsed as a PLY model.', { cause });
   }
