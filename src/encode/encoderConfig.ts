@@ -191,6 +191,17 @@ export function buildEncoderConfig(req: EncodeRequest): EncoderConfigCandidate[]
   }));
 }
 
+/**
+ * Stable reorder putting VP9/WebM candidates ahead of the rest. Firefox's H.264
+ * WebCodecs encoder passes `isConfigSupported` but then mangles the stream
+ * dimensions when fed WebGL-canvas frames, so the render worker prefers this order
+ * on that engine. Stable, so the relative order within each group is preserved.
+ */
+export function preferWebmFirst<T extends { candidate: CodecCandidate }>(items: T[]): T[] {
+  const webmRank = (item: T): number => (item.candidate.container === 'webm' ? 0 : 1);
+  return [...items].sort((a, b) => webmRank(a) - webmRank(b));
+}
+
 export interface SupportProbe {
   candidate: CodecCandidate;
   config: VideoEncoderConfig;

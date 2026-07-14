@@ -37,12 +37,12 @@ De-risk the core bet before any UI.
 
 ## Milestone 2 - Streaming MP4/WebM render+encode worker
 
-- [ ] Render worker on `OffscreenCanvas`; rebuild scene from the copied buffers.
-- [ ] Streaming loop: position camera on orbit, render, wrap canvas in `VideoFrame` (timestamp `round(i*1e6/fps)`), encode with `keyFrame = i===0 || i % (fps*2)===0`. Throttle on `encodeQueueSize` for backpressure. (gpt #11, #12)
-- [ ] Exact-config preflight before start; re-probe whenever width/height/fps/quality/bitrate change. Runtime encoder-error guard -> offer a lower-resolution retry. (gpt #3, #4)
-- [ ] **Cancellation as first-class** (gpt #17): Cancel button stops scheduling, closes the encoder, closes pending `VideoFrame`s, resets the worker, revokes partial blob URLs, and restores a usable UI.
-- [ ] **Phased progress** (gpt #18): Preparing geometry (0-5%) -> Rendering/encoding i/n (5-90%) -> Finalising (90-99%) -> Download ready (100%); monotonic, no false precision.
-- [ ] Finalise: flush encoder, mux, create blob, transfer to main thread, enable download (optional auto-download). Clean up encoder/frames; revoke stale blob URLs on next render.
+- [x] Render worker on `OffscreenCanvas`; rebuild scene from the copied buffers. (`src/scene/renderWorker.ts`, `renderModel.ts` reusing `sceneBuilder` + `rebuildGeometry`)
+- [x] Streaming loop: position camera on orbit, render, wrap canvas in `VideoFrame` (timestamp `round(i*1e6/fps)`), encode with `keyFrame = i===0 || i % (fps*2)===0`. Throttle on `encodeQueueSize` for backpressure. (gpt #11, #12) - reuses the M0 `encodeCanvasSequence` core.
+- [x] Exact-config preflight before start; re-probe whenever width/height/fps/quality/bitrate change. Runtime encoder-error guard -> offer a lower-resolution retry. (gpt #3, #4) — **plus** a generic post-encode output-dimension check: **Firefox H.264 passes `isConfigSupported` but silently muxes a WebGL render as 16x160**, so the worker prefers VP9->WebM on Firefox and verifies the real muxed size, falling to the next candidate on mismatch. (`src/encode/verify.ts`, `preferWebmFirst`)
+- [x] **Cancellation as first-class** (gpt #17): Cancel button stops scheduling, closes the encoder, closes pending `VideoFrame`s, resets the worker (hard `terminate()`), revokes partial blob URLs, and restores a usable UI.
+- [x] **Phased progress** (gpt #18): Preparing geometry (0-5%) -> Rendering/encoding i/n (5-90%) -> Finalising (90-99%) -> Download ready (100%); monotonic (`src/export/progress.ts`, main-thread `Math.max` clamp), no false precision.
+- [x] Finalise: flush encoder, mux, create blob, transfer to main thread, enable download. Clean up encoder/frames; revoke stale blob URLs on next render. (`src/export/exportController.ts`)
 
 ## Milestone 3 - Settings UI, presets, validation
 
@@ -64,7 +64,7 @@ De-risk the core bet before any UI.
 
 - [x] Camera math: orbit vectors, bounding-sphere fit, aspect-derived FoV, near/far.
 - [ ] Input validation: even-rounding, preset -> custom transition, frame-count derivation.
-- [ ] Encode helpers: timestamp/keyframe math, `buildEncoderConfig`, candidate selection.
+- [x] Encode helpers: timestamp/keyframe math, `buildEncoderConfig`, candidate selection (`preferWebmFirst`). Export progress mapping (`src/export/progress.ts`) also unit-tested.
 
 ---
 

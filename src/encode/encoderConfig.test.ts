@@ -6,6 +6,7 @@ import {
   vp9CodecString,
   defaultBitrate,
   buildEncoderConfig,
+  preferWebmFirst,
 } from './encoderConfig.js';
 
 describe('selectAvcLevel', () => {
@@ -83,5 +84,38 @@ describe('buildEncoderConfig', () => {
   it('passes an explicit bitrate through unchanged', () => {
     const [high] = buildEncoderConfig({ width: 512, height: 512, fps: 30, bitrate: 2_000_000 });
     expect(high!.config.bitrate).toBe(2_000_000);
+  });
+});
+
+describe('preferWebmFirst', () => {
+  // The full ordered candidate list is [H.264 high, main, baseline, VP9]; on Firefox
+  // the worker moves the WebM candidate to the front to dodge the broken H.264 path.
+  const items = buildEncoderConfig({ width: 512, height: 512, fps: 30 });
+
+  it('moves WebM candidates ahead of MP4 ones', () => {
+    const ordered = preferWebmFirst(items);
+    expect(ordered[0]!.candidate.container).toBe('webm');
+    expect(ordered.at(-1)!.candidate.container).toBe('mp4');
+  });
+
+  it('preserves the relative order within each container group (stable)', () => {
+    const ordered = preferWebmFirst(items);
+    const mp4Codecs = ordered
+      .filter((c) => c.candidate.container === 'mp4')
+      .map((c) => c.candidate.codec);
+    const originalMp4 = items
+      .filter((c) => c.candidate.container === 'mp4')
+      .map((c) => c.candidate.codec);
+    expect(mp4Codecs).toEqual(originalMp4);
+  });
+
+  it('does not mutate the input array', () => {
+    const before = items.map((c) => c.candidate.codec);
+    preferWebmFirst(items);
+    expect(items.map((c) => c.candidate.codec)).toEqual(before);
+  });
+
+  it('is a no-op when there is nothing to reorder', () => {
+    expect(preferWebmFirst([])).toEqual([]);
   });
 });
