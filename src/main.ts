@@ -21,9 +21,11 @@ import {
   SIZE_OPTIONS,
   clampDuration,
   deriveFrameCount,
+  dimensionsFor,
   matchPresetId,
   normalizeEvenDimension,
   presetLabel,
+  type AspectRatio,
   type OutputSettings,
 } from './settings/output';
 
@@ -53,6 +55,11 @@ const marginOut = must<HTMLOutputElement>('marginOut');
 const directionSel = must<HTMLSelectElement>('direction');
 const turnsInput = must<HTMLInputElement>('turns');
 const exportCam = must<HTMLInputElement>('exportCam');
+const pointSizeAutoField = must<HTMLLabelElement>('pointSizeAutoField');
+const pointSizeAuto = must<HTMLInputElement>('pointSizeAuto');
+const pointSizeField = must<HTMLDivElement>('pointSizeField');
+const pointSizeInput = must<HTMLInputElement>('pointSize');
+const pointSizeOut = must<HTMLOutputElement>('pointSizeOut');
 
 const colorModeSel = must<HTMLSelectElement>('colorMode');
 const brightnessInput = must<HTMLInputElement>('brightness');
@@ -66,6 +73,7 @@ const bgPicker = must<HTMLInputElement>('bgPicker');
 const sizeSel = must<HTMLSelectElement>('size');
 const customSizeField = must<HTMLDivElement>('customSizeField');
 const customSize = must<HTMLInputElement>('customSize');
+const aspectSel = must<HTMLSelectElement>('aspect');
 const sizeNote = must<HTMLParagraphElement>('sizeNote');
 const fpsSel = must<HTMLSelectElement>('fps');
 const durationInput = must<HTMLInputElement>('duration');
@@ -121,6 +129,11 @@ async function loadFile(file: File): Promise<void> {
     showInfo(loaded);
     controls.disabled = false;
     dropzone.classList.add('hidden');
+    // Point-size controls only apply to point clouds.
+    pointSizeAutoField.hidden = !loaded.isPoints;
+    pointSizeField.hidden = !loaded.isPoints;
+    applyPointSize();
+    updateStageAspect();
     refreshColor();
     syncPresetLabel();
     void refreshSupport();
@@ -186,6 +199,23 @@ turnsInput.addEventListener('change', () => {
 exportCam.addEventListener('change', () => {
   preview.setExportCameraLock(exportCam.checked);
 });
+
+// --- Point size (point clouds only) ----------------------------------------
+
+/** Absolute point diameter the user chose, or null to use the auto heuristic. */
+function pointSizeValue(): number | null {
+  return pointSizeAuto.checked ? null : Number(pointSizeInput.value);
+}
+
+function applyPointSize(): void {
+  const override = pointSizeValue();
+  pointSizeInput.disabled = override === null;
+  pointSizeOut.textContent = override === null ? 'Auto' : override.toFixed(1);
+  preview.setPointSize(override);
+}
+
+pointSizeAuto.addEventListener('change', applyPointSize);
+pointSizeInput.addEventListener('input', applyPointSize);
 
 // --- Colour ----------------------------------------------------------------
 
@@ -254,10 +284,19 @@ bgPicker.addEventListener('input', () => {
 
 // --- Output / presets / validation -----------------------------------------
 
-/** Effective square export dimension (custom input already normalized to even). */
+/** Effective long-edge dimension (custom input already normalized to even). */
 function currentSize(): number {
   if (sizeSel.value === 'custom') return normalizeEvenDimension(Number(customSize.value)).value;
   return Number(sizeSel.value) || 1080;
+}
+
+function currentAspect(): AspectRatio {
+  return aspectSel.value === '16:9' ? '16:9' : '1:1';
+}
+
+/** Even width/height derived from the long edge + aspect. */
+function currentDimensions(): { width: number; height: number } {
+  return dimensionsFor(currentSize(), currentAspect());
 }
 
 function currentFps(): number {
@@ -269,8 +308,25 @@ function currentDurationSeconds(): number {
 }
 
 function currentOutput(): OutputSettings {
-  return { size: currentSize(), fps: currentFps(), durationSeconds: currentDurationSeconds() };
+  return {
+    size: currentSize(),
+    fps: currentFps(),
+    durationSeconds: currentDurationSeconds(),
+    aspect: currentAspect(),
+  };
 }
+
+/** Point the preview stage at the chosen aspect and re-frame once it resizes. */
+function updateStageAspect(): void {
+  stage.dataset.aspect = currentAspect();
+  requestAnimationFrame(() => preview.reframe());
+}
+
+aspectSel.addEventListener('change', () => {
+  updateStageAspect();
+  syncPresetLabel();
+  void refreshSupport();
+});
 
 function updateFrameInfo(): void {
   const frames = deriveFrameCount(currentDurationSeconds(), currentFps());
@@ -290,7 +346,7 @@ function syncPresetLabel(): void {
 function applyPreset(id: string): void {
   const preset = PRESETS.find((p) => p.id === id);
   if (!preset) return;
-  const { size, fps, durationSeconds } = preset.output;
+  const { size, fps, durationSeconds, aspect } = preset.output;
 
   if ((SIZE_OPTIONS as readonly number[]).includes(size)) {
     sizeSel.value = String(size);
@@ -304,6 +360,8 @@ function applyPreset(id: string): void {
   fpsSel.value = String(fps);
   durationInput.value = String(durationSeconds);
   durationOut.textContent = `${durationSeconds}s`;
+  aspectSel.value = aspect;
+  updateStageAspect();
 
   updateFrameInfo();
   syncPresetLabel();
@@ -359,16 +417,16 @@ let supportToken = 0;
 /** Probe isConfigSupported for the current size/fps; surface an unsupported message. */
 async function refreshSupport(): Promise<void> {
   const token = ++supportToken;
-  const size = currentSize();
+  const { width, height } = currentDimensions();
   const fps = currentFps();
   try {
-    const picked = await pickSupportedConfig({ width: size, height: size, fps });
+    const picked = await pickSupportedConfig({ width, height, fps });
     if (token !== supportToken) return;
     if (picked) {
       supportNote.textContent = '';
       if (cancelBtn.hidden) renderBtn.disabled = false;
     } else {
-      supportNote.textContent = `This browser can't encode ${size}×${size} @ ${fps}fps as MP4 or WebM. Try a smaller size or another browser.`;
+      supportNote.textContent = `This browser can't encode ${width}×${height} @ ${fps}fps as MP4 or WebM. Try a smaller size or another browser.`;
       renderBtn.disabled = true;
     }
   } catch {
@@ -380,14 +438,15 @@ async function refreshSupport(): Promise<void> {
 
 /** Read the full render request from the current control state. */
 function buildOptions(): RenderExportOptions {
-  const size = currentSize();
+  const { width, height } = currentDimensions();
   const mbps = Number(bitrateInput.value);
+  const override = pointSizeValue();
   // Optional codec override (debug / E2E): lets us exercise the VP9->WebM path.
   const forced = (window as unknown as { __forceMediabunnyCodec?: 'avc' | 'vp9' })
     .__forceMediabunnyCodec;
   return {
-    width: size,
-    height: size,
+    width,
+    height,
     fps: currentFps(),
     durationSeconds: currentDurationSeconds(),
     axis: axisSel.value as Axis,
@@ -396,16 +455,17 @@ function buildOptions(): RenderExportOptions {
     turns: Math.max(1, Math.round(Number(turnsInput.value) || 1)),
     direction: directionSel.value as SpinDirection,
     background: currentBackground,
+    ...(override !== null ? { pointSizeOverride: override } : {}),
     ...(mbps > 0 ? { bitrate: mbps * 1_000_000 } : {}),
     ...(forced ? { forceMediabunnyCodec: forced } : {}),
   };
 }
 
-/** Halve a square export for the lower-resolution retry, keeping it even. */
+/** Halve an export for the lower-resolution retry, keeping both edges even. */
 function halveOptions(options: RenderExportOptions): RenderExportOptions {
-  const halved = Math.max(MIN_EXPORT_SIZE, Math.round(options.width / 2));
-  const even = halved - (halved % 2);
-  return { ...options, width: even, height: even };
+  const w = Math.max(MIN_EXPORT_SIZE, Math.round(options.width / 2));
+  const h = Math.max(2, Math.round(options.height / 2));
+  return { ...options, width: w - (w % 2), height: h - (h % 2) };
 }
 
 let lastOptions: RenderExportOptions | null = null;

@@ -7,7 +7,7 @@
 
 import { frameCount } from '../encode/timestamps';
 
-/** Square output dimension offered as quick picks; custom sizes are also allowed. */
+/** Long-edge dimension offered as quick picks; custom sizes are also allowed. */
 export const SIZE_OPTIONS = [512, 1080, 1440, 2048] as const;
 export const FPS_OPTIONS = [24, 30, 60] as const;
 
@@ -16,12 +16,39 @@ export const MAX_DIMENSION = 8192;
 export const MIN_DURATION = 2;
 export const MAX_DURATION = 30;
 
+/** Framing shapes. `size` is always the *longer* edge; the shorter edge derives. */
+export type AspectRatio = '1:1' | '16:9';
+
+/** width / height for each aspect (used to derive the short edge from the long one). */
+export const ASPECT_RATIOS: Record<AspectRatio, number> = {
+  '1:1': 1,
+  '16:9': 16 / 9,
+};
+
 /** The output half of the settings a preset controls. */
 export interface OutputSettings {
-  /** Square export dimension in pixels (width === height for v1). */
+  /** Export dimension of the *longer* edge in pixels. */
   size: number;
   fps: number;
   durationSeconds: number;
+  aspect: AspectRatio;
+}
+
+export interface Dimensions {
+  width: number;
+  height: number;
+}
+
+/**
+ * Derive even width/height from a long-edge size and an aspect. Landscape puts the
+ * long edge on width; square makes both equal. Both edges are forced even so H.264
+ * / yuv420p accept them.
+ */
+export function dimensionsFor(longEdge: number, aspect: AspectRatio): Dimensions {
+  const width = normalizeEvenDimension(longEdge).value;
+  if (aspect === '1:1') return { width, height: width };
+  const height = normalizeEvenDimension(width / ASPECT_RATIOS[aspect]).value;
+  return { width, height };
 }
 
 export interface Preset {
@@ -32,9 +59,9 @@ export interface Preset {
 
 /** Built-in presets. Editing any field flips the UI label to "Custom" (gpt #21). */
 export const PRESETS: Preset[] = [
-  { id: 'slides', label: 'Slides', output: { size: 1080, fps: 30, durationSeconds: 12 } },
-  { id: 'social', label: 'Social', output: { size: 512, fps: 30, durationSeconds: 8 } },
-  { id: 'hires', label: 'Hi-res', output: { size: 2048, fps: 60, durationSeconds: 8 } },
+  { id: 'slides', label: 'Slides', output: { size: 1080, fps: 30, durationSeconds: 12, aspect: '1:1' } },
+  { id: 'social', label: 'Social', output: { size: 512, fps: 30, durationSeconds: 8, aspect: '1:1' } },
+  { id: 'hires', label: 'Hi-res', output: { size: 2048, fps: 60, durationSeconds: 8, aspect: '1:1' } },
 ];
 
 export interface DimensionResult {
@@ -86,7 +113,8 @@ export function matchPresetId(output: OutputSettings): string | null {
     (p) =>
       p.output.size === output.size &&
       p.output.fps === output.fps &&
-      p.output.durationSeconds === output.durationSeconds,
+      p.output.durationSeconds === output.durationSeconds &&
+      p.output.aspect === output.aspect,
   );
   return found ? found.id : null;
 }

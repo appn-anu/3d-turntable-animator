@@ -28,6 +28,8 @@ export interface RenderModelParams {
   turns: number;
   direction: SpinDirection;
   background: Color | string | number;
+  /** Absolute point diameter in px; overrides the width heuristic when set. */
+  pointSize?: number;
 }
 
 export class TurntableRenderer {
@@ -55,7 +57,11 @@ export class TurntableRenderer {
     this.renderer.setSize(width, height, false);
     configureRenderer(this.renderer);
 
-    this.scene = buildScene(loaded, { width, background: params.background });
+    this.scene = buildScene(loaded, {
+      width,
+      background: params.background,
+      ...(params.pointSize !== undefined ? { pointSize: params.pointSize } : {}),
+    });
 
     const aspect = height > 0 ? width / height : 1;
     this.distance = fitDistance(loaded.radius, verticalFovDeg, aspect, margin);

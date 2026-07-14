@@ -71,6 +71,8 @@ export class TurntablePreview {
   private lockStart = 0;
   private rafId = 0;
   private disposed = false;
+  /** Absolute point diameter in px, or null to use the width-based heuristic. */
+  private pointSizeOverride: number | null = null;
 
   constructor(private readonly canvas: HTMLCanvasElement) {
     this.renderer = new WebGLRenderer({ canvas, antialias: true });
@@ -100,7 +102,22 @@ export class TurntablePreview {
     this.sceneObjects = buildScene(loaded, {
       width: this.renderer.domElement.width,
       background: this.background,
+      ...(this.pointSizeOverride !== null ? { pointSize: this.pointSizeOverride } : {}),
     });
+    this.refitCamera();
+  }
+
+  /** Set an absolute point diameter in px, or null to restore the auto heuristic. */
+  setPointSize(size: number | null): void {
+    this.pointSizeOverride = size;
+    if (this.sceneObjects && this.loaded?.isPoints) {
+      const material = (this.sceneObjects.object as Points).material as PointsMaterial;
+      material.size = size ?? pointSize(this.renderer.domElement.width);
+    }
+  }
+
+  /** Re-frame the model at export frame 0 (e.g. after the output aspect changes). */
+  reframe(): void {
     this.refitCamera();
   }
 
@@ -202,10 +219,10 @@ export class TurntablePreview {
     this.renderer.setSize(width, height, false);
     this.camera.aspect = this.aspect();
     this.camera.updateProjectionMatrix();
-    // Point size follows the drawing-buffer width.
+    // Point size: user override if set, else the drawing-buffer-width heuristic.
     if (this.sceneObjects && this.loaded?.isPoints) {
       const material = (this.sceneObjects.object as Points).material as PointsMaterial;
-      material.size = pointSize(this.renderer.domElement.width);
+      material.size = this.pointSizeOverride ?? pointSize(this.renderer.domElement.width);
     }
     if (this.loaded && !this.exportLock) this.applyInteractiveClipping();
   }

@@ -8,7 +8,7 @@ import type { ExportPhase } from './progress';
 
 /** Everything the worker needs to render + encode one turntable video. */
 export interface RenderExportOptions {
-  /** Square output for v1; width === height. */
+  /** Output pixels. Square (1:1) or landscape (16:9); both edges even. */
   width: number;
   height: number;
   fps: number;
@@ -22,6 +22,8 @@ export interface RenderExportOptions {
   background: string;
   /** Explicit bitrate (bits/sec); derived from resolution when omitted. */
   bitrate?: number;
+  /** Absolute point diameter in px; overrides the width heuristic when set. */
+  pointSizeOverride?: number;
   /** Force a codec/container, e.g. 'vp9' to exercise the WebM path. */
   forceMediabunnyCodec?: 'avc' | 'vp9';
 }

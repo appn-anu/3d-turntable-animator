@@ -47,12 +47,12 @@ De-risk the core bet before any UI.
 ## Milestone 3 - Settings UI, presets, validation
 
 - [x] One-page form. **Presets:** Slides (1080²/30/12s), Social (512²/30/8s), Hi-res (2048²/60/8s). Editing any field after a preset switches the label to **Custom** (gpt #21). (`src/settings/output.ts` presets + match; `#presets` bar in `main.ts`.)
-- [~] Grouped controls: *Camera* (up-axis, spin CW/CCW, turns, framing 1.1-3.0, FoV 15-90) — **point-size auto+override still TODO**. *Animation* (duration 2-30s, fps 24/30/60, derived frame-count). *Output* (size 512/1080/1440/2048 + even custom, background swatches + colour picker). *Advanced* (`<details>`: bitrate override; **raw fov/margin and free-aspect-ratio still TODO**). Camera/Animation/Output/Advanced groups shipped; the two noted items are the M3 follow-up.
+- [x] Grouped controls: *Camera* (up-axis, spin CW/CCW, turns, framing 1.1-3.0, FoV 15-90, **point-size auto+override** for point clouds). *Animation* (duration 2-30s, fps 24/30/60, derived frame-count). *Output* (**long-edge** size 512/1080/1440/2048 + even custom, **aspect 1:1 / 16:9** with even short-edge derivation + preview-stage coupling, background swatches + colour picker). *Advanced* (`<details>`: bitrate override). Completely-raw options (arbitrary fov/margin, free/arbitrary aspect) moved to Deferred - they need enable/disable design + edge-case testing.
 - [x] **Even-dimension UX** (gpt #19): custom size `step=2`; an odd paste shows "1279 → 1280 (H.264 needs even dimensions)" via `normalizeEvenDimension` instead of silently rounding.
 - [x] Live-preview coupling: axis / spin / turns / framing / FoV all drive the preview live; colour mode + brightness rebake and refresh the preview immediately.
 - [x] Support surfaces: `#supportNote` runs `pickSupportedConfig` on size/fps changes and shows "this browser can't encode …" (and disables Render) when neither MP4 nor WebM is supported.
 - [x] **Colour handling (deferred from M1):** `src/ply/color.ts` pipeline — Auto (prefer 16-bit `red16/green16/blue16`, auto-brighten the robust highlight to ~0.9, **EV brightness slider layered on top**), Faithful (8-bit, unit gain, byte-for-byte CLI parity), Off (neutral fill). Loader keeps raw channels (`RawColor`); `applyColorSettings` rebakes the linear `color` attribute live. Auto level + EV slider **confirmed by the user** against real preview renders (wheat: black silhouette → green plant, ~109× gain). See [[wheat-colour-finding]].
-- [~] Visual parity check: web **Faithful** render reproduces the CLI's 8-bit black-silhouette output (confirmed structurally via headless preview capture). A full Open3D-CLI invocation for pixel parity is the M3 follow-up (needs the python/EGL env).
+- [x] Visual parity check: the web renders were reviewed and signed off by the user (Faithful reproduces the CLI's 8-bit silhouette; Auto is the preferred look). A byte-level Open3D-CLI parity render was **intentionally skipped** - an earlier review decided against strict CLI parity (Auto looks better and is easier to use).
 
 ## Milestone 4 - PWA + CI/deploy
 
@@ -72,7 +72,10 @@ De-risk the core bet before any UI.
 
 GIF output (`gifenc`) · ffmpeg.wasm fallback · PNG-sequence export · decimation
 strategy tuning (voxel-grid/reservoir vs stride) · streamed file output for very
-large exports · backend high-fidelity Open3D escape hatch.
+large exports · backend high-fidelity Open3D escape hatch · **completely-raw
+output controls** (arbitrary vertical FoV/margin numbers, free/arbitrary aspect
+ratio) — deferred from M3 pending a design for which controls enable/disable when,
+plus edge-case testing.
 
 ## Verification (once implemented)
 

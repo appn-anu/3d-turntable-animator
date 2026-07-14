@@ -103,6 +103,9 @@ async function run(geometry: ExportGeometryPayload, options: RenderExportOptions
       turns: options.turns,
       direction: options.direction,
       background: options.background,
+      ...(options.pointSizeOverride !== undefined
+        ? { pointSize: options.pointSizeOverride }
+        : {}),
     });
     const boundRenderer = renderer;
 

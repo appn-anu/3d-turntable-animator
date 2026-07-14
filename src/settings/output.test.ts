@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   normalizeEvenDimension,
+  dimensionsFor,
   clampDuration,
   deriveFrameCount,
   matchPresetId,
@@ -47,6 +48,24 @@ describe('normalizeEvenDimension', () => {
   });
 });
 
+describe('dimensionsFor', () => {
+  it('makes both edges the long edge for a square', () => {
+    expect(dimensionsFor(1080, '1:1')).toEqual({ width: 1080, height: 1080 });
+  });
+
+  it('puts the long edge on width for 16:9 and evens the short edge', () => {
+    expect(dimensionsFor(1920, '16:9')).toEqual({ width: 1920, height: 1080 });
+    // 1000 wide -> 562.5 tall -> rounded to an even 564.
+    expect(dimensionsFor(1000, '16:9')).toEqual({ width: 1000, height: 564 });
+  });
+
+  it('keeps an odd requested long edge even too', () => {
+    const { width, height } = dimensionsFor(513, '16:9');
+    expect(width % 2).toBe(0);
+    expect(height % 2).toBe(0);
+  });
+});
+
 describe('clampDuration', () => {
   it('clamps into [min,max] and rounds to whole seconds', () => {
     expect(clampDuration(0)).toBe(2);
@@ -81,12 +100,18 @@ describe('presets', () => {
     expect(presetLabel(edited)).toBe('Custom');
   });
 
+  it('treats an aspect change as Custom', () => {
+    const slides = PRESETS.find((p) => p.id === 'slides')!.output;
+    expect(presetLabel({ ...slides, aspect: '16:9' })).toBe('Custom');
+  });
+
   it('exposes the documented preset set', () => {
     expect(PRESETS.map((p) => p.id)).toEqual(['slides', 'social', 'hires']);
     expect(PRESETS.find((p) => p.id === 'social')!.output).toEqual({
       size: 512,
       fps: 30,
       durationSeconds: 8,
+      aspect: '1:1',
     });
   });
 });

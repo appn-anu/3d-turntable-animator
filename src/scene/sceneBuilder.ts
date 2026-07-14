@@ -51,6 +51,8 @@ export interface BuildSceneOptions {
   width: number;
   /** Background colour (any THREE.Color-compatible value). Default white. */
   background?: Color | string | number;
+  /** Absolute point diameter in px; overrides the width-based heuristic when set. */
+  pointSize?: number;
 }
 
 /**
@@ -64,7 +66,7 @@ export function buildScene(loaded: LoadedPly, options: BuildSceneOptions): Scene
   scene.background = new Color(options.background ?? '#ffffff');
 
   const object = loaded.isPoints
-    ? buildPoints(loaded.geometry, loaded.hasColors, options.width)
+    ? buildPoints(loaded.geometry, loaded.hasColors, options.width, options.pointSize)
     : buildMesh(loaded.geometry, loaded.hasColors);
   scene.add(object);
 
@@ -105,9 +107,14 @@ export function setObjectColorState(object: Points | Mesh, hasColors: boolean): 
   if (colorAttr) colorAttr.needsUpdate = true;
 }
 
-function buildPoints(geometry: BufferGeometry, hasColors: boolean, width: number): Points {
+function buildPoints(
+  geometry: BufferGeometry,
+  hasColors: boolean,
+  width: number,
+  pointSizeOverride?: number,
+): Points {
   const material = new PointsMaterial({
-    size: pointSize(width),
+    size: pointSizeOverride ?? pointSize(width),
     sizeAttenuation: false,
     vertexColors: hasColors,
     color: hasColors ? 0xffffff : POINTS_FALLBACK,
