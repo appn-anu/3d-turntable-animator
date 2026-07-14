@@ -44,18 +44,14 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2,wasm}'],
         maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
         cleanupOutdatedCaches: true,
-        // The encode spike is its own precached page; don't let the SPA fallback hijack it.
-        navigateFallbackDenylist: [/harness/],
       },
     }),
   ],
   build: {
     target: 'es2022',
     rollupOptions: {
-      // Two entry points: the (still-stub) app shell and the Milestone 0 compat spike.
       input: {
         main: resolve(__dirname, 'index.html'),
-        harness: resolve(__dirname, 'harness.html'),
       },
     },
   },

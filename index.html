@@ -466,7 +466,6 @@
     <header>
       <h1>3D Turntable Animator</h1>
       <span class="sub">PLY &rarr; turntable preview</span>
-      <a href="./harness.html">encode spike &rarr;</a>
       <button
         id="themeToggle"
         class="theme-toggle"
@@ -482,7 +481,9 @@
       <div class="stage" id="stage">
         <canvas id="preview"></canvas>
         <div class="dropzone" id="dropzone">
-          Drop a <strong>.ply</strong> file here, or use <em>Load PLY</em>.
+          <!-- Single flex child: a flex container strips whitespace-only text nodes
+               between items, so the inline markup must live inside one element. -->
+          <span>Drop a <strong>.ply</strong> file here, or use <em>Load PLY</em>.</span>
         </div>
       </div>
 

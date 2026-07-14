@@ -10,8 +10,7 @@
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.node.json",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui",
-    "spike": "playwright test compat"
+    "test:e2e:ui": "playwright test --ui"
   },
   "repository": {
     "type": "git",

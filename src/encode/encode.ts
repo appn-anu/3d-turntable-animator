@@ -4,7 +4,7 @@
  * or WebM. Each frame is dropped before the next is drawn, so peak memory stays a
  * handful of frames rather than the whole sequence.
  *
- * Shared by the Milestone 0 compat harness and (later) the render worker.
+ * Driven by the render worker (`src/scene/renderWorker.ts`).
  */
 
 import {
@@ -59,7 +59,7 @@ function nextTask(): Promise<void> {
 
 /**
  * Runs the full render->encode->mux loop and returns a playable blob plus the
- * timestamp/keyframe telemetry the harness verifies against.
+ * timestamp/keyframe telemetry (emitted PTS + keyframe positions) for the caller.
  */
 export async function encodeCanvasSequence(opts: EncodeOptions): Promise<EncodeResult> {
   const { canvas, frames, fps, picked, drawFrame, onProgress, signal } = opts;

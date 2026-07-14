@@ -1,5 +1,5 @@
 /**
- * Frame timing helpers shared by the compat harness and the render worker.
+ * Frame timing helpers for the render worker and the settings frame-count derivation.
  *
  * All timestamps are integer microseconds derived purely from the frame index,
  * never accumulated - accumulation drifts, index derivation does not (gpt #11).
