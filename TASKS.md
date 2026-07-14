@@ -17,13 +17,13 @@
 De-risk the core bet before any UI.
 
 - [x] Install `three`, `mediabunny`, `vite-plugin-pwa`, `@types/three`; commit lockfile.
-- [ ] TypeScript scaffold: `index.html`, `src/main.ts`, `tsconfig.json`, `vite.config.ts` with `base: '/3d-turntable-animator/'` and worker (module) support.
+- [x] TypeScript scaffold: `index.html`, `src/main.ts`, `tsconfig.json`, `vite.config.ts` with `base: '/3d-turntable-animator/'` and worker (module) support.
 - [x] Refresh `TOOLS.local.md` to reflect all three Playwright engines + installed deps.
-- [ ] Encode helper module: `buildEncoderConfig({ width, height, fps, bitrate })` returning an **ordered candidate list** of fully-qualified codec strings (H.264 `avc1.*` profile/level chosen per resolution; then VP9 `vp09.*`), and `pickSupportedConfig()` that builds the exact config and calls `VideoEncoder.isConfigSupported()` on each candidate. (gpt #3)
-- [ ] Compat harness: procedurally render a spinning gradient/cube sequence and encode to a **playable** MP4 through `VideoEncoder` + mediabunny. Verify: index-derived microsecond timestamps `round(i*1e6/fps)`, keyframe cadence, final duration, seek + playback. (gpt #11, #12)
-- [ ] Verify AVC bitstream vs Annex B / decoder-config (SPS/PPS) agreement between WebCodecs output and mediabunny. (gpt #13)
-- [ ] Run the harness in **Chromium and Firefox** (WebKit optional). Test exact configs: 512² @30, 1080² @30, 2048² @30 and @60. Record a **support matrix** (engine × config -> fast / slow / unavailable). (gpt #3, #4)
-- [ ] **Firefox path:** if H.264 encode is unavailable/flaky, confirm the VP9 -> WebM candidate produces a playable file via mediabunny; the encode helper falls back to it automatically.
+- [x] Encode helper module: `buildEncoderConfig({ width, height, fps, bitrate })` returning an **ordered candidate list** of fully-qualified codec strings (H.264 `avc1.*` profile/level chosen per resolution; then VP9 `vp09.*`), and `pickSupportedConfig()` that builds the exact config and calls `VideoEncoder.isConfigSupported()` on each candidate. (gpt #3)
+- [x] Compat harness: procedurally render a spinning gradient/cube sequence and encode to a **playable** MP4 through `VideoEncoder` + mediabunny. Verify: index-derived microsecond timestamps `round(i*1e6/fps)`, keyframe cadence, final duration, seek + playback. (gpt #11, #12)
+- [x] Verify AVC bitstream vs Annex B / decoder-config (SPS/PPS) agreement between WebCodecs output and mediabunny. (gpt #13)
+- [x] Run the harness in **Chromium and Firefox** (WebKit optional). Test exact configs: 512² @30, 1080² @30, 2048² @30 and @60. Record a **support matrix** (engine × config -> fast / slow / unavailable). (gpt #3, #4) — see `SUPPORT-MATRIX.md`.
+- [x] **Firefox path:** if H.264 encode is unavailable/flaky, confirm the VP9 -> WebM candidate produces a playable file via mediabunny; the encode helper falls back to it automatically.
 
 ## Milestone 1 - PLY load, preview, geometry ownership, camera fit
 
