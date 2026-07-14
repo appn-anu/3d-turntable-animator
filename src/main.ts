@@ -28,6 +28,7 @@ import {
   type AspectRatio,
   type OutputSettings,
 } from './settings/output';
+import { registerSW } from 'virtual:pwa-register';
 
 function must<T extends Element>(id: string): T {
   const el = document.getElementById(id);
@@ -618,4 +619,39 @@ function exposeResult(blob: Blob, container: string, filename: string, url: stri
 window.addEventListener('beforeunload', () => {
   exporter.dispose();
   preview.dispose();
+});
+
+// --- Service worker (PWA) -----------------------------------------------------
+// registerType is 'prompt', so a new deploy waits until the user clicks Reload —
+// we never hot-swap worker code mid-export. In dev (no built SW) registerSW is a
+// no-op and neither callback fires, so the toast simply stays hidden.
+const pwaToast = must<HTMLDivElement>('pwaToast');
+const pwaToastMsg = must<HTMLSpanElement>('pwaToastMsg');
+const pwaReload = must<HTMLButtonElement>('pwaReload');
+const pwaDismiss = must<HTMLButtonElement>('pwaDismiss');
+
+function showToast(message: string, offerReload: boolean): void {
+  pwaToastMsg.textContent = message;
+  pwaReload.hidden = !offerReload;
+  pwaToast.hidden = false;
+}
+
+pwaDismiss.addEventListener('click', () => {
+  pwaToast.hidden = true;
+});
+
+const updateServiceWorker = registerSW({
+  onNeedRefresh() {
+    // A newer build is cached and waiting. Activate it (skipWaiting) + reload only
+    // when the user asks, so an in-flight render is never interrupted.
+    pwaReload.onclick = () => void updateServiceWorker(true);
+    showToast('A new version is available.', true);
+  },
+  onOfflineReady() {
+    showToast('Ready to work offline.', false);
+    // Transient confirmation; auto-dismiss unless an update prompt is also up.
+    globalThis.setTimeout(() => {
+      if (pwaReload.hidden) pwaToast.hidden = true;
+    }, 5000);
+  },
 });

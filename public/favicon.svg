@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#3b6ef5"/>
+  <!-- turntable platter -->
+  <ellipse cx="256" cy="366" rx="150" ry="46" fill="none" stroke="#ffffff" stroke-opacity="0.45" stroke-width="14"/>
+  <!-- rotation arrow arc over the platter -->
+  <path d="M 126 348 A 150 46 0 0 1 386 348" fill="none" stroke="#ffffff" stroke-opacity="0.9" stroke-width="14" stroke-linecap="round"/>
+  <path d="M 386 348 l 4 -26 l -26 8 z" fill="#ffffff"/>
+  <!-- isometric cube sitting on the platter -->
+  <polygon points="256,170 334,215 256,260 178,215" fill="#ffffff"/>
+  <polygon points="178,215 256,260 256,352 178,307" fill="#c9daff"/>
+  <polygon points="334,215 256,260 256,352 334,307" fill="#a7c3ff"/>
+</svg>

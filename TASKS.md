@@ -56,9 +56,9 @@ De-risk the core bet before any UI.
 
 ## Milestone 4 - PWA + CI/deploy
 
-- [ ] `vite-plugin-pwa`: precache the (small) bundle + offline shell. **Offline-ready indicator** + cache versioning and a reload-on-update flow so old worker code never mixes with new app code (gpt #15).
-- [ ] GitHub Actions: on PR run build + Vitest + Playwright (Chromium + Firefox); on push to `main` build and deploy `dist/` to GitHub Pages.
-- [ ] Playwright E2E: upload `test-data/wheat_cutout.ply`, render, assert a video blob is produced and is basically playable. Run **Chromium + Firefox**; WebKit optional.
+- [x] `vite-plugin-pwa`: precache the bundle + offline shell (`globPatterns` all shell assets, 6 MiB cap for the three.js chunk). **Offline-ready indicator** + **reload-on-update** flow via `registerType: 'prompt'` + `virtual:pwa-register` (`onOfflineReady`/`onNeedRefresh` -> a `#pwaToast` with a Reload button; `updateSW(true)` only on click so an in-flight export is never hot-swapped, gpt #15). Icons + manifest under `public/`. Verified: offline reload serves the shell from precache, SW controls the page.
+- [x] GitHub Actions: `.github/workflows/ci.yml` (on PR to main: typecheck + Vitest + build + Playwright Chromium+Firefox, uploads the report on failure); `.github/workflows/deploy.yml` (on push to `main`: typecheck + Vitest gate, build, deploy `dist/` to Pages via `configure-pages`/`upload-pages-artifact`/`deploy-pages`). **Repo Settings -> Pages -> Source must be "GitHub Actions".**
+- [x] Playwright E2E: `tests/e2e/export.spec.ts` uploads `test-data/wheat_cutout.ply`, renders 512²/30/2s, asserts a real `video/(mp4|webm)` blob that an independent `<video>` decodes at 512×512 with ~2s duration. Green on **Chromium + Firefox** (Firefox via the VP9->WebM path). CI adds `retries: 2` for software-render flakiness.
 
 ## Cross-cutting unit tests (Vitest)
 

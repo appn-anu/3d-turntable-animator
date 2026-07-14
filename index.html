@@ -4,6 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>3D Turntable Animator</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="apple-touch-icon.png" />
     <script>
       // Apply a saved theme choice before first paint to avoid a flash of the
       // wrong palette. 'auto' leaves data-theme unset so the media query decides.
@@ -409,6 +411,55 @@
       .support-note:empty {
         display: none;
       }
+      /* Service-worker status toast (offline-ready / update-available). */
+      .pwa-toast {
+        position: fixed;
+        left: 50%;
+        bottom: 1rem;
+        transform: translateX(-50%);
+        z-index: 20;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        max-width: min(92vw, 26rem);
+        padding: 0.6rem 0.6rem 0.6rem 0.9rem;
+        font-size: 0.85rem;
+        color: var(--ink);
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        box-shadow: 0 6px 24px rgb(0 0 0 / 0.18);
+      }
+      .pwa-toast[hidden] {
+        display: none;
+      }
+      .pwa-toast span {
+        flex: 1 1 auto;
+      }
+      .pwa-toast-btn {
+        font: inherit;
+        font-size: 0.82rem;
+        padding: 0.3rem 0.7rem;
+        border: 1px solid var(--accent);
+        border-radius: 8px;
+        background: var(--accent);
+        color: #fff;
+        cursor: pointer;
+      }
+      .pwa-toast-btn[hidden] {
+        display: none;
+      }
+      .pwa-toast-close {
+        font: inherit;
+        font-size: 1.1rem;
+        line-height: 1;
+        padding: 0.1rem 0.4rem;
+        border: none;
+        border-radius: 6px;
+        background: transparent;
+        color: var(--muted);
+        cursor: pointer;
+      }
     </style>
   </head>
   <body>
@@ -610,6 +661,14 @@
         </fieldset>
       </div>
     </main>
+
+    <div id="pwaToast" class="pwa-toast" hidden role="status" aria-live="polite">
+      <span id="pwaToastMsg"></span>
+      <button id="pwaReload" class="pwa-toast-btn" type="button" hidden>Reload</button>
+      <button id="pwaDismiss" class="pwa-toast-close" type="button" aria-label="Dismiss">
+        &times;
+      </button>
+    </div>
 
     <script type="module" src="/src/main.ts"></script>
   </body>

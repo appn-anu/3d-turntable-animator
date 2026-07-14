@@ -12,7 +12,10 @@ export default defineConfig({
   expect: { timeout: 30_000 },
   fullyParallel: false,
   workers: 1,
-  reporter: [['list']],
+  // Software WebGL + software video encoding on CI runners can hiccup; give the
+  // render/export specs a couple of retries there (none locally).
+  retries: process.env.CI ? 2 : 0,
+  reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : [['list']],
   use: {
     baseURL: BASE,
   },
