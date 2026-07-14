@@ -1,0 +1,6 @@
+# standard python stuff
+.venv/
+__pycache__/
+
+# test rendering
+outputs/
