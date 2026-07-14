@@ -27,13 +27,13 @@ De-risk the core bet before any UI.
 
 ## Milestone 1 - PLY load, preview, geometry ownership, camera fit
 
-- [ ] `PLYLoader` parse (ASCII + binary); no faces -> `THREE.Points`, else lit mesh. Center via axis-aligned bbox (matches CLI).
-- [ ] Interactive preview with `OrbitControls`. Points: `PointsMaterial({ vertexColors:true, size: clamp(width/320,2,5), sizeAttenuation:false })`, `NoToneMapping`, `outputColorSpace = SRGBColorSpace`. Mesh: `DirectionalLight([0.5,1,1])` + low ambient/hemisphere fill.
-- [ ] Camera math ported from CLI: axis -> `base_eye`/`up`/rotation, vertical FoV, `eye = R(angle) @ base_eye`. (`python-CLI/render_turntable.py:55-82,196-217`)
-- [ ] **Full-orbit-safe fit** (gpt #5): replace the square-only distance with a **bounding-sphere** fit (safe at every turntable angle); derive horizontal FoV from aspect for non-square safety; compute **dynamic near/far** from scene bounds.
-- [ ] **Geometry ownership** (gpt #2): keep the canonical preview geometry on the main thread; on export, send a *copy* (`positions.slice()`, `colors?.slice()`) and transfer the copy's buffers so preview buffers are never detached. Memory sanity-check before copying.
-- [ ] Edge cases: missing vertex colours, empty/invalid file, unusual property layouts, very large files (warn above a few million points).
-- [ ] "Preview export camera" toggle locks the preview to the deterministic turntable path.
+- [x] `PLYLoader` parse (ASCII + binary); no faces -> `THREE.Points`, else lit mesh. Center via axis-aligned bbox (matches CLI).
+- [x] Interactive preview with `OrbitControls`. Points: `PointsMaterial({ vertexColors:true, size: clamp(width/320,2,5), sizeAttenuation:false })`, `NoToneMapping`, `outputColorSpace = SRGBColorSpace`. Mesh: `DirectionalLight([0.5,1,1])` + low ambient/hemisphere fill.
+- [x] Camera math ported from CLI: axis -> `base_eye`/`up`/rotation, vertical FoV, `eye = R(angle) @ base_eye`. (`python-CLI/render_turntable.py:55-82,196-217`)
+- [x] **Full-orbit-safe fit** (gpt #5): replace the square-only distance with a **bounding-sphere** fit (safe at every turntable angle); derive horizontal FoV from aspect for non-square safety; compute **dynamic near/far** from scene bounds.
+- [x] **Geometry ownership** (gpt #2): keep the canonical preview geometry on the main thread; on export, send a *copy* (`positions.slice()`, `colors?.slice()`) and transfer the copy's buffers so preview buffers are never detached. Memory sanity-check before copying.
+- [x] Edge cases: missing vertex colours, empty/invalid file, unusual property layouts, very large files (warn above a few million points).
+- [x] "Preview export camera" toggle locks the preview to the deterministic turntable path.
 
 ## Milestone 2 - Streaming MP4/WebM render+encode worker
 
@@ -51,6 +51,7 @@ De-risk the core bet before any UI.
 - [ ] **Even-dimension UX** (gpt #19): input `step=2`; if a pasted odd value is corrected, show "1279 -> 1280 (H.264 needs even dimensions)" instead of silently rounding.
 - [ ] Live-preview coupling for every camera control.
 - [ ] Support surfaces: clear "this browser cannot encode MP4/WebM" message driven by `isConfigSupported`.
+- [ ] **Colour handling (deferred from M1):** the M1 loader is faithful to the raw 8-bit `red/green/blue` (matches the CLI byte-for-byte). PlantEye scans like `wheat_cutout.ply` store near-black 8-bit colour (mean ~2.5/255); the real, still-dim colour lives in 16-bit `red16/green16/blue16`. Add **auto-brightening** for low-range clouds (prefer the 16-bit channels when present) with a **manual brightness slider layered on top**, and a faithful/off mode. Settle against a real CLI render here.
 - [ ] Visual parity check: render `test-data/wheat_cutout.ply` and compare against a CLI render of the same file.
 
 ## Milestone 4 - PWA + CI/deploy
@@ -61,7 +62,7 @@ De-risk the core bet before any UI.
 
 ## Cross-cutting unit tests (Vitest)
 
-- [ ] Camera math: orbit vectors, bounding-sphere fit, aspect-derived FoV, near/far.
+- [x] Camera math: orbit vectors, bounding-sphere fit, aspect-derived FoV, near/far.
 - [ ] Input validation: even-rounding, preset -> custom transition, frame-count derivation.
 - [ ] Encode helpers: timestamp/keyframe math, `buildEncoderConfig`, candidate selection.
 
