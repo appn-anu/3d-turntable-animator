@@ -40,6 +40,7 @@ const stage = must<HTMLDivElement>('stage');
 const dropzone = must<HTMLDivElement>('dropzone');
 const fileInput = must<HTMLInputElement>('file');
 const loadBtn = must<HTMLButtonElement>('loadBtn');
+const themeToggle = must<HTMLButtonElement>('themeToggle');
 const info = must<HTMLParagraphElement>('info');
 const warnings = must<HTMLUListElement>('warnings');
 const controls = must<HTMLFieldSetElement>('controls');
@@ -75,6 +76,7 @@ const customSizeField = must<HTMLDivElement>('customSizeField');
 const customSize = must<HTMLInputElement>('customSize');
 const aspectSel = must<HTMLSelectElement>('aspect');
 const sizeNote = must<HTMLParagraphElement>('sizeNote');
+const resInfo = must<HTMLParagraphElement>('resInfo');
 const fpsSel = must<HTMLSelectElement>('fps');
 const durationInput = must<HTMLInputElement>('duration');
 const durationOut = must<HTMLOutputElement>('durationOut');
@@ -166,6 +168,47 @@ stage.addEventListener('drop', (e) => {
   const file = e.dataTransfer?.files?.[0];
   if (file) void loadFile(file);
 });
+
+// --- Theme (auto dark mode + manual override) ------------------------------
+
+type ThemePref = 'auto' | 'light' | 'dark';
+const THEME_ICON: Record<ThemePref, string> = { auto: '🌗', light: '☀️', dark: '🌙' };
+const THEME_NEXT: Record<ThemePref, ThemePref> = { auto: 'light', light: 'dark', dark: 'auto' };
+const THEME_HINT: Record<ThemePref, string> = {
+  auto: 'Theme: follows system (click for light)',
+  light: 'Theme: light (click for dark)',
+  dark: 'Theme: dark (click to follow system)',
+};
+
+function currentThemePref(): ThemePref {
+  const t = document.documentElement.dataset.theme;
+  return t === 'light' || t === 'dark' ? t : 'auto';
+}
+
+/** Apply a theme choice: 'auto' leaves the media query in charge; else pin it. */
+function applyThemePref(pref: ThemePref): void {
+  if (pref === 'auto') {
+    delete document.documentElement.dataset.theme;
+    try {
+      localStorage.removeItem('theme');
+    } catch {
+      /* storage may be unavailable (private mode) — theme still applies live */
+    }
+  } else {
+    document.documentElement.dataset.theme = pref;
+    try {
+      localStorage.setItem('theme', pref);
+    } catch {
+      /* ignore */
+    }
+  }
+  themeToggle.textContent = THEME_ICON[pref];
+  themeToggle.title = THEME_HINT[pref];
+  themeToggle.setAttribute('aria-label', THEME_HINT[pref]);
+}
+
+applyThemePref(currentThemePref());
+themeToggle.addEventListener('click', () => applyThemePref(THEME_NEXT[currentThemePref()]));
 
 // --- Camera controls -------------------------------------------------------
 
@@ -324,6 +367,7 @@ function updateStageAspect(): void {
 
 aspectSel.addEventListener('change', () => {
   updateStageAspect();
+  updateResInfo();
   syncPresetLabel();
   void refreshSupport();
 });
@@ -331,6 +375,12 @@ aspectSel.addEventListener('change', () => {
 function updateFrameInfo(): void {
   const frames = deriveFrameCount(currentDurationSeconds(), currentFps());
   frameInfo.textContent = `${frames.toLocaleString()} frames`;
+}
+
+/** Show the derived output resolution (long edge + aspect -> width x height). */
+function updateResInfo(): void {
+  const { width, height } = currentDimensions();
+  resInfo.textContent = `${width} × ${height}`;
 }
 
 /** Reflect whether the current output triple matches a named preset (gpt #21). */
@@ -364,6 +414,7 @@ function applyPreset(id: string): void {
   updateStageAspect();
 
   updateFrameInfo();
+  updateResInfo();
   syncPresetLabel();
   void refreshSupport();
 }
@@ -378,6 +429,7 @@ function applyCustomSize(): void {
   const r = normalizeEvenDimension(Number(customSize.value));
   customSize.value = String(r.value);
   sizeNote.textContent = r.message ?? '';
+  updateResInfo();
   syncPresetLabel();
   void refreshSupport();
 }
@@ -387,6 +439,7 @@ sizeSel.addEventListener('change', () => {
   customSizeField.hidden = !custom;
   if (custom) applyCustomSize();
   else sizeNote.textContent = '';
+  updateResInfo();
   syncPresetLabel();
   void refreshSupport();
 });
@@ -409,6 +462,7 @@ bitrateInput.addEventListener('input', () => {
 });
 
 updateFrameInfo();
+updateResInfo();
 syncPresetLabel();
 
 // --- Encoder support surface ------------------------------------------------
