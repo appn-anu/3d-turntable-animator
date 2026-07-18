@@ -107,6 +107,13 @@ export function rebuildGeometry(payload: ExportGeometryPayload): LoadedPly {
   if (payload.indices) {
     geometry.setIndex(new Uint32BufferAttribute(payload.indices, 1));
   }
+  // Meshes need normals for the lit shader. We don't ship them across the boundary
+  // (positions + indices are enough to reproduce them); recompute here so the worker's
+  // lit material matches the preview, which does the same in `normalizeGeometry`.
+  // Points never use normals.
+  if (!payload.isPoints) {
+    geometry.computeVertexNormals();
+  }
   geometry.computeBoundingSphere();
   return {
     geometry,

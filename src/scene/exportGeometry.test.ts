@@ -133,4 +133,20 @@ describe('rebuildGeometry round-trip', () => {
     expect(rebuilt.geometry.getIndex()).not.toBeNull();
     expect(rebuilt.geometry.getIndex()!.count).toBe(6);
   });
+
+  it('recomputes normals for meshes so the lit export matches the preview', () => {
+    const loaded = parsePly(toBuffer(MESH_PLY));
+    const { payload } = extractExportGeometry(loaded);
+    const rebuilt = rebuildGeometry(payload);
+    // Normals are not transferred; the worker must recompute them or the lit
+    // MeshStandardMaterial renders unlit/black.
+    const normal = rebuilt.geometry.getAttribute('normal');
+    expect(normal).toBeTruthy();
+    expect(normal.count).toBe(rebuilt.vertexCount);
+    // The MESH_PLY quad lies in z=0, so every vertex normal points along ±z (unit).
+    for (let i = 0; i < normal.count; i++) {
+      const len = Math.hypot(normal.getX(i), normal.getY(i), normal.getZ(i));
+      expect(len).toBeCloseTo(1, 6);
+    }
+  });
 });
